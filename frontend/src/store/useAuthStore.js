@@ -3,7 +3,7 @@ import { axiosInstance } from "../lib/axios.js";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
 
-const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
+const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:5001" : "https://chat-application-sick.onrender.com";
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
@@ -19,6 +19,10 @@ export const useAuthStore = create((set, get) => ({
       const res = await axiosInstance.get("/auth/check");
 
       set({ authUser: res.data });
+      // Connect socket after successful authentication
+      if (res.data) {
+        get().connectSocket();
+      }
     } catch (error) {
       console.log("Error in checkAuth", error);
       set({ authUser: null });
@@ -83,8 +87,24 @@ export const useAuthStore = create((set, get) => ({
 
     if (!authUser || get().socket?.connected) return;
 
-    const socket = io(BASE_URL);
-    socket.connect();
+    const socket = io(BASE_URL, {
+      query: {
+        userId: authUser._id,
+      },
+    });
+
+    socket.on("connect", () => {
+      console.log("Socket connected:", socket.id);
+    });
+
+    socket.on("getOnlineUsers", (onlineUsers) => {
+      console.log("Online users received:", onlineUsers);
+      set({ onlineUsers });
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Socket disconnected");
+    });
 
     set({ socket: socket });
   },
