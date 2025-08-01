@@ -1,7 +1,6 @@
 import cloudinary from "../lib/cloudinary.js";
 import Message from "../models/message.model.js";
 import User from "../models/user.model.js";
-import { getReceiverSocketId, io } from "../lib/socket.js";
 
 export const getUserForSidebar = async (req, res) => {
   try {
@@ -22,15 +21,15 @@ export const getMessages = async (req, res) => {
 
     const messages = await Message.find({
       $or: [
-        { senderId: myId, receiverId: userToChatId },
-        { senderId: userToChatId, receiverId: myId },
+        { senderId: senderId, receiverId: userToChatId },
+        { SenderId: userToChatId, receiverId: myId },
       ],
     });
 
     res.status(200).json(messages);
   } catch (error) {
     console.log("Error getMessages contoller: ", error.message);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Internal derver error" });
   }
 };
 
@@ -54,11 +53,6 @@ export const sendMessage = async (req, res) => {
     });
 
     await newMessage.save();
-
-    const receiverSocketId = getReceiverSocketId(receiverId);
-    if(receiverSocketId) {
-      io.to(receiverSocketId).emit("newMessage", newMessage);
-    }
 
     res.status(201).json(newMessage);
   } catch (error) {

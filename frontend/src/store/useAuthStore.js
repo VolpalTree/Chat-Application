@@ -3,7 +3,9 @@ import { axiosInstance } from "../lib/axios.js";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
 
-const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:5001" : "https://chat-application-sick.onrender.com";
+const BASE_URL = import.meta.env.MODE === "development" 
+  ? "http://localhost:5001" 
+  : window.location.origin;
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
@@ -21,7 +23,9 @@ export const useAuthStore = create((set, get) => ({
       set({ authUser: res.data });
       // Connect socket after successful authentication
       if (res.data) {
-        get().connectSocket();
+        setTimeout(() => {
+          get().connectSocket();
+        }, 1000); // Small delay to ensure auth is complete
       }
     } catch (error) {
       console.log("Error in checkAuth", error);
@@ -87,14 +91,22 @@ export const useAuthStore = create((set, get) => ({
 
     if (!authUser || get().socket?.connected) return;
 
+    console.log("Attempting to connect socket to:", BASE_URL);
+    console.log("User ID:", authUser._id);
+
     const socket = io(BASE_URL, {
       query: {
         userId: authUser._id,
       },
+      transports: ['websocket', 'polling'],
     });
 
     socket.on("connect", () => {
       console.log("Socket connected:", socket.id);
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
     });
 
     socket.on("getOnlineUsers", (onlineUsers) => {
