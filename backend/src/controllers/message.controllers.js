@@ -1,6 +1,7 @@
 import cloudinary from "../lib/cloudinary.js";
 import Message from "../models/message.model.js";
 import User from "../models/user.model.js";
+import { getReceiverSocketId, io } from "../lib/socket.js";
 
 export const getUserForSidebar = async (req, res) => {
   try {
@@ -19,17 +20,21 @@ export const getMessages = async (req, res) => {
     const { id: userToChatId } = req.params;
     const myId = req.user._id;
 
+    console.log("getMessages called with:", { userToChatId, myId });
+
     const messages = await Message.find({
       $or: [
-        { senderId: senderId, receiverId: userToChatId },
-        { SenderId: userToChatId, receiverId: myId },
+        { senderId: myId, receiverId: userToChatId },
+        { senderId: userToChatId, receiverId: myId },
       ],
     });
 
+    console.log("Found messages:", messages.length);
     res.status(200).json(messages);
   } catch (error) {
-    console.log("Error getMessages contoller: ", error.message);
-    res.status(500).json({ error: "Internal derver error" });
+    console.log("Error getMessages controller: ", error.message);
+    console.log("Full error:", error);
+    res.status(500).json({ error: "Internal server error", details: error.message });
   }
 };
 
@@ -53,6 +58,11 @@ export const sendMessage = async (req, res) => {
     });
 
     await newMessage.save();
+
+    const receiverSocketId = getReceiverSocketId(receiverId);
+    if(receiverSocketId) {
+      io.to(receiverSocketId).emit("newMessage", newMessage);
+    }
 
     res.status(201).json(newMessage);
   } catch (error) {
